@@ -1,0 +1,63 @@
+{
+ "doctype": "DocType",
+ "name": "DI Copilot Log",
+ "module": "Doc Intelligence",
+ "autoname": "hash",
+ "track_changes": 0,
+ "fields": [
+  {
+   "fieldname": "question",
+   "label": "Question",
+   "fieldtype": "Small Text",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "action",
+   "label": "Action",
+   "fieldtype": "Data",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "target_doctype",
+   "label": "Target DocType",
+   "fieldtype": "Data",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "plan",
+   "label": "Validated Plan (JSON)",
+   "fieldtype": "Long Text"
+  },
+  {
+   "fieldname": "result_count",
+   "label": "Result Count",
+   "fieldtype": "Int",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "success",
+   "label": "Success",
+   "fieldtype": "Check",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "error",
+   "label": "Error",
+   "fieldtype": "Small Text"
+  },
+  {
+   "fieldname": "timestamp",
+   "label": "Timestamp",
+   "fieldtype": "Datetime",
+   "in_list_view": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1
+  }
+ ]
+}

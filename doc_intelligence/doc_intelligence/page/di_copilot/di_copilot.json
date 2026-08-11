@@ -1,0 +1,13 @@
+{
+ "doctype": "Page",
+ "name": "di-copilot",
+ "page_name": "di-copilot",
+ "title": "Ask ERPNext",
+ "module": "Doc Intelligence",
+ "system_page": 0,
+ "roles": [
+  {
+   "role": "Doc Intelligence User"
+  }
+ ]
+}

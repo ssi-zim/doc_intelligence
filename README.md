@@ -34,6 +34,15 @@ every push, so compatibility is verified continuously rather than just claimed.
   - Fuzzy supplier matching with ambiguity detection
   - Duplicate invoice detection (same bill number + supplier), with a hard server-side block unless explicitly confirmed
 
+**Ask ERPNext — plain-English queries, safely**
+- Desk page (`Ask ERPNext`) to ask natural-language questions about your ERP data
+- Schema-aware planning: the AI plans against real DocType metadata, not guessed fields
+- Structured JSON query plans, validated against an explicit allow-list before anything runs
+- Permission-safe reads via `frappe.get_list()` as the current user — no `ignore_permissions`, no raw SQL, no generated Python
+- Optional draft record creation (Customer, Supplier, Item, Task, ToDo, Contact, Lead) with an explicit on-screen **Approve / Cancel** step — nothing is written until you approve
+- Demo prompts for quick screenshots or a first try: *"Show unpaid invoices older than 30 days"*, *"Show low-stock items"*, *"How many sales orders were created this week?"*, and more
+- Full audit trail of every question, plan, and outcome in **DI Copilot Log**
+
 **Platform**
 - Multi-provider LLM routing with automatic fallback, so a rate-limited provider doesn't block processing
 - Provider health dashboard (24h success rate per provider)
@@ -44,7 +53,7 @@ every push, so compatibility is verified continuously rather than just claimed.
 
 Classic Frappe custom app + decoupled Vue 3 SPA:
 
-- **Backend** (`doc_intelligence/doc_intelligence/`) — DocTypes, whitelisted REST API (`api/__init__.py`), the multi-provider LLM engine (`llm_engine.py`), the financial-validation/fuzzy-matching module (`validation.py`).
+- **Backend** (`doc_intelligence/doc_intelligence/`) — DocTypes, whitelisted REST API (`api/__init__.py`), the multi-provider LLM engine (`llm_engine.py`), the financial-validation/fuzzy-matching module (`validation.py`), and the Ask ERPNext planner/validator/executor (`copilot.py`).
 - **Frontend** (`frontend/`) — Vue 3 + Vite + Pinia + Vue Router + Dexie (PWA offline cache), built to `doc_intelligence/public/doc_intelligence_app/` and served at `/doc-intelligence`.
 - Legacy Desk Pages (`di-dashboard`, `di-provider-settings`) work alongside the SPA if you prefer working from inside Desk.
 
@@ -71,6 +80,7 @@ bench restart
 4. Add that provider's id to **Enabled Providers**, e.g. `groq,gemini,cerebras,claude`
 5. Go to `/doc-intelligence/home` → **Upload Document**
 6. Wait for status = **Ready**, then try Ask a Question, Compare, and Create ERPNext Record
+7. In Desk, open **Ask ERPNext** (search bar or the Doc Intelligence workspace) and try one of the demo prompts, e.g. *"Show unpaid invoices"*
 
 ## License
 

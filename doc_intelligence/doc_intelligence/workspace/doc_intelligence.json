@@ -41,6 +41,13 @@
    "label": "Dashboard",
    "type": "Page",
    "link_to": "di-dashboard"
+  },
+  {
+   "label": "Ask ERPNext",
+   "type": "Page",
+   "link_to": "di-copilot",
+   "icon": "octicon octicon-comment-discussion",
+   "color": "#22c55e"
   }
  ],
  "cards": [
@@ -56,6 +63,21 @@
      "label": "Document Intelligence Report",
      "type": "Report",
      "link_to": "Document Intelligence Report"
+    }
+   ]
+  },
+  {
+   "label": "Ask ERPNext",
+   "links": [
+    {
+     "label": "Ask ERPNext",
+     "type": "Page",
+     "link_to": "di-copilot"
+    },
+    {
+     "label": "Copilot History",
+     "type": "DocType",
+     "link_to": "DI Copilot Log"
     }
    ]
   },
