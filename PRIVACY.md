@@ -31,6 +31,13 @@ policy and data handling practices of whichever LLM provider(s) you've chosen to
 ours. Review those providers' own privacy policies before enabling them, especially if you plan
 to process sensitive or regulated documents.
 
+When you use **Ask ERPNext** (the natural-language query feature), what's sent to the LLM is your
+question, the field metadata (names/labels/types) of the ERPNext DocTypes you're allowed to read,
+and today's date — used to plan a structured, validated query. Your actual ERP business records
+(invoices, customers, items, and so on) are queried locally inside ERPNext using that plan and are
+**not** sent to the model. Records are only ever created after you explicitly approve a proposed
+draft on-screen.
+
 ## 3. Third-party network requests
 
 The Desk-side multi-photo capture feature loads a small PDF-generation library (jsPDF) from a

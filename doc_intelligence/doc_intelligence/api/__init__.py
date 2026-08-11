@@ -1034,3 +1034,33 @@ def get_session_info():
         "platform_name": settings.platform_name or "Doc Intelligence",
         "support_email": settings.support_email,
     }
+
+
+# =====================================================================
+# ERP COPILOT — "Ask ERPNext in plain English", safely.
+# See doc_intelligence.doc_intelligence.copilot for the planner/
+# validator/executor. This section only exposes it over the wire.
+# =====================================================================
+
+@frappe.whitelist()
+def copilot_demo_prompts():
+    from doc_intelligence.doc_intelligence.copilot import DEMO_PROMPTS
+    return DEMO_PROMPTS
+
+
+@frappe.whitelist()
+def copilot_ask(question):
+    from doc_intelligence.doc_intelligence.copilot import ask, CopilotError
+    try:
+        return ask(question, frappe.session.user)
+    except CopilotError as e:
+        frappe.throw(str(e), title="Couldn't answer that")
+
+
+@frappe.whitelist()
+def copilot_confirm_create(doctype, values):
+    from doc_intelligence.doc_intelligence.copilot import confirm_create, CopilotError
+    try:
+        return confirm_create(doctype, values, frappe.session.user)
+    except CopilotError as e:
+        frappe.throw(str(e), title="Couldn't create record")
