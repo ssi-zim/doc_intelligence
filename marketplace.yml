@@ -27,5 +27,6 @@ min_frappe_version: "14.0.0"
 supported:
   - "14"
   - "15"
+  - "16"
 support_link: https://github.com/yourname/doc_intelligence/issues
 support_email: aravindsprint@gmail.com

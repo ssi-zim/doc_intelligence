@@ -6,6 +6,16 @@ Upload a PDF, DOCX, or photo and instantly get an AI-generated summary, key enti
 
 Everything is self-hosted: your documents and your API keys stay on your own Frappe site. Bring your own keys for whichever LLM providers you want — Groq, Gemini, Cerebras, OpenRouter, Mistral, DeepSeek, OpenAI, or Claude — with automatic fallback between them.
 
+## Compatibility
+
+**Doc Intelligence supports Frappe / ERPNext v14, v15, and v16** — all from this one branch, no
+version-specific branch to pick. `bench get-app doc_intelligence
+https://github.com/aravindsprint/doc_intelligence` works the same way regardless of which of the
+three your bench is running.
+
+CI (`.github/workflows/ci.yml`) builds and runs the test suite against Frappe v14, v15, and v16 on
+every push, so compatibility is verified continuously rather than just claimed.
+
 ## Features
 
 **Document intelligence**
