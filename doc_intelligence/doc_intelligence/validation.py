@@ -20,6 +20,8 @@ to run on every extraction.
 """
 
 import difflib
+import re
+
 import frappe
 
 
@@ -78,60 +80,96 @@ def validate_financials(items, tax_amount=0, grand_total=0, tolerance_percent=0.
     }
 
 
+_LEGAL_SUFFIX_TOKENS = {
+    "co", "company", "corp", "corporation", "inc", "incorporated",
+    "limited", "ltd", "llc", "lp", "plc", "private", "pvt",
+}
+
+
+def _normalise_business_name(value):
+    """Return meaningful business-name tokens, ignoring legal suffixes."""
+    tokens = re.findall(r"[a-z0-9]+", (value or "").casefold())
+    return [token for token in tokens if token not in _LEGAL_SUFFIX_TOKENS]
+
+
 def intelligent_entity_match(doctype, name_field, detected_name):
     """
-    Generic version of intelligent_supplier_match — matches an AI-extracted
-    name string against existing records of *any* doctype/name field
-    (Item/item_name, Customer/customer_name, Employee/employee_name, etc).
+    Match an extracted name to an existing record without silently guessing.
 
-    Same exact-then-fuzzy-with-ambiguity-detection logic: refuses to
-    auto-pick when multiple records are ambiguously close, so a human
-    reviews it instead of a silently-wrong auto-match.
-
-    Returns: {"match": name_or_None, "confidence": 0-100, "multiple_matches": bool}
+    Matching is exact first, then compares legal-name-normalised forms. A
+    short ERPNext name may be accepted when its meaningful token(s) occur in
+    the detected legal invoice name, but only where exactly one record
+    qualifies. General fuzzy matching remains the final, conservative path.
     """
     if not detected_name:
         return {"match": None, "confidence": 0, "multiple_matches": False}
 
-    needle = detected_name.strip().lower()
-    if not needle:
+    needle = detected_name.strip().casefold()
+    needle_tokens = _normalise_business_name(detected_name)
+    if not needle or not needle_tokens:
         return {"match": None, "confidence": 0, "multiple_matches": False}
 
     records = frappe.get_all(doctype, fields=["name", name_field])
 
-    # 1. Exact match (case-insensitive)
-    for r in records:
-        val = r.get(name_field)
-        if val and val.strip().lower() == needle:
-            return {"match": r.name, "confidence": 100, "multiple_matches": False}
+    # 1. Exact match (case-insensitive).
+    for record in records:
+        value = record.get(name_field)
+        if value and value.strip().casefold() == needle:
+            return {"match": record.name, "confidence": 100, "multiple_matches": False}
 
-    # 2. Fuzzy similarity
+    # 2. Exact match after harmless legal-suffix/punctuation normalisation.
+    normalised_matches = []
+    for record in records:
+        value = record.get(name_field)
+        if value and _normalise_business_name(value) == needle_tokens:
+            normalised_matches.append(record.name)
+    if len(normalised_matches) == 1:
+        return {"match": normalised_matches[0], "confidence": 98, "multiple_matches": False}
+    if len(normalised_matches) > 1:
+        return {"match": None, "confidence": 98, "multiple_matches": True}
+
+    # 3. Legal invoice names often add product words to a short supplier name
+    # (for example, "KEFALOS CHEESE PRODUCTS PVT (LTD)" -> "Kefalos").
+    # Only accept a unique, meaningful token-sequence containment match.
+    contained_matches = []
+    for record in records:
+        value = record.get(name_field)
+        candidate_tokens = _normalise_business_name(value)
+        if (
+            candidate_tokens
+            and all(len(token) >= 4 for token in candidate_tokens)
+            and set(candidate_tokens).issubset(set(needle_tokens))
+        ):
+            contained_matches.append(record.name)
+    if len(contained_matches) == 1:
+        return {"match": contained_matches[0], "confidence": 95, "multiple_matches": False}
+    if len(contained_matches) > 1:
+        return {"match": None, "confidence": 95, "multiple_matches": True}
+
+    # 4. Fuzzy similarity is deliberately the final fallback.
     scores = []
-    for r in records:
-        val = r.get(name_field)
-        if not val:
+    for record in records:
+        value = record.get(name_field)
+        if not value:
             continue
-        score = difflib.SequenceMatcher(None, needle, val.strip().lower()).ratio()
-        scores.append((score, r.name))
+        score = difflib.SequenceMatcher(None, needle, value.strip().casefold()).ratio()
+        scores.append((score, record.name))
 
     if not scores:
         return {"match": None, "confidence": 0, "multiple_matches": False}
 
-    scores.sort(reverse=True, key=lambda x: x[0])
+    scores.sort(reverse=True, key=lambda item: item[0])
     best_score, best_match = scores[0]
     confidence = int(best_score * 100)
 
-    # 3. Ambiguity check — don't guess if several records are all plausibly close
-    close_matches = [s for s in scores if s[0] > 0.75]
+    close_matches = [score for score in scores if score[0] > 0.75]
     if len(close_matches) > 1:
         return {"match": None, "confidence": confidence, "multiple_matches": True}
 
-    # 4. Threshold — only auto-match with reasonable confidence
     if confidence >= 80:
         return {"match": best_match, "confidence": confidence, "multiple_matches": False}
 
     return {"match": None, "confidence": confidence, "multiple_matches": False}
-
 
 def intelligent_supplier_match(detected_name):
     """
