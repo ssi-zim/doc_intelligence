@@ -327,13 +327,26 @@ Return only the JSON, no explanation."""
 
 
 @frappe.whitelist()
-def create_purchase_invoice_doc(supplier, bill_no, bill_date, posting_date, due_date,
-                                 company, currency, items, remarks, naming_series,
-                                 confirm_duplicate=0):
+def create_purchase_invoice_doc(supplier, bill_no=None, bill_date=None, posting_date=None,
+                                 due_date=None, company=None, currency=None, items=None,
+                                 remarks=None, naming_series=None, confirm_duplicate=0):
+    """Create a draft Purchase Invoice from reviewed extracted values.
+
+    due_date and remarks are intentionally optional. If no due date is
+    supplied, use the posting date, then the bill date, then today.
+    """
     import json
 
     if isinstance(items, str):
         items = json.loads(items)
+    items = items or []
+
+    # A missing extracted date must not make invoice creation fail. Keep all
+    # three document dates consistent, preferring the user-reviewed values.
+    invoice_date = posting_date or bill_date or nowdate()
+    posting_date = posting_date or invoice_date
+    bill_date = bill_date or invoice_date
+    due_date = due_date or posting_date or bill_date
 
     # Hard safety net: block an exact-duplicate bill_no+supplier unless the
     # user has explicitly confirmed they want to proceed anyway (the
@@ -369,11 +382,11 @@ def create_purchase_invoice_doc(supplier, bill_no, bill_date, posting_date, due_
         "bill_no": bill_no,
         "bill_date": bill_date,
         "posting_date": posting_date,
-        "due_date": due_date or posting_date,
+        "due_date": due_date,
         "company": company,
         "currency": currency or "INR",
         "items": pi_items,
-        "custom_pending_remarks": remarks or "Created via Doc Intelligence",
+        "custom_pending_remarks": remarks or "",
     })
     doc.insert(ignore_mandatory=True)
     # Commits immediately after insert() so the newly-created draft record is
