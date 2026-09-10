@@ -53,6 +53,7 @@ const di_ps = {
         {id:"openrouter", name:"OpenRouter", dot:"#D85A30", free:true, stat:"20+ free models · single key", hint:"sk-or-...", docs:"https://openrouter.ai", kf:"openrouter_api_key", mf:"openrouter_model", models:[]},
         {id:"mistral", name:"Mistral", dot:"#378ADD", free:true, stat:"No credit card · 256K context", hint:"...", docs:"https://console.mistral.ai", kf:"mistral_api_key", mf:"mistral_model", models:["mistral-small-latest","mistral-medium-latest","codestral-latest"]},
         {id:"claude", name:"Anthropic Claude", dot:"#D4537E", free:false, stat:"Paid · 200K ctx · final fallback", hint:"sk-ant-...", docs:"https://console.anthropic.com", kf:"claude_api_key", mf:"claude_model", models:["claude-haiku-4-5-20251001","claude-sonnet-4-6"]},
+        {id:"openai", name:"OpenAI (ChatGPT)", dot:"#10A37F", free:false, stat:"Any model ID available to your API key", hint:"sk-...", docs:"https://platform.openai.com/api-keys", kf:"openai_api_key", mf:"openai_model", models:[]},
     ],
     st: {active: new Set(), open: new Set(), keys: {}, models: {}, order: []},
 
@@ -115,7 +116,9 @@ const di_ps = {
         const active = this.st.active.has(p.id);
         const hasKey = !!(this.st.keys[p.id] && this.st.keys[p.id] !== "xxxxxx");
         const dotCls = hasKey ? "ready" : (active ? "warn" : "");
-        const modelOpts = p.models.length ? p.models.map(m => `<option value="${m}" ${this.st.models[p.id]===m?"selected":""}>${m}</option>`).join("") : `<option value="${this.st.models[p.id]||""}">${this.st.models[p.id]||"Custom"}</option>`;
+        const modelControl = p.models.length
+            ? `<select class="form-control form-control-sm" onchange="di_ps.st.models['${p.id}']=this.value" style="margin-top:4px;max-width:340px">${p.models.map(m => `<option value="${m}" ${this.st.models[p.id]===m?"selected":""}>${m}</option>`).join("")}</select>`
+            : `<input class="form-control form-control-sm" value="${this.st.models[p.id]||""}" placeholder="Enter a model ID" oninput="di_ps.st.models['${p.id}']=this.value" style="margin-top:4px;max-width:340px">`;
         return `
         <div class="di-provider-row ${active?"active":""} ${this.st.open.has(p.id)?"open":""}" id="di-row-${p.id}">
             <div class="di-provider-header" onclick="di_ps.toggleOpen('${p.id}', event)">
@@ -139,10 +142,7 @@ const di_ps = {
                 </div>
                 <div>
                     <label style="font-size:12px;font-weight:600;color:var(--text-muted)">Model</label><br>
-                    <select class="form-control form-control-sm" onchange="di_ps.st.models['${p.id}']=this.value" style="margin-top:4px;max-width:340px">
-                        ${modelOpts}
-                        ${!p.models.length?`<option value="${this.st.models[p.id]||""}">${this.st.models[p.id]||""}</option>`:""}
-                    </select>
+                    ${modelControl}
                 </div>
             </div>
         </div>`;
@@ -250,3 +250,4 @@ const di_ps = {
         `).join("");
     }
 };
+
