@@ -178,11 +178,16 @@
           </div>
 
           <label class="di-label" style="margin-top:14px">Line items</label>
+          <p v-if="mode === 'pi'" class="di-hint">Choose an ERPNext Item Code for any unmatched line. Confirmed supplier descriptions are remembered for future invoices.</p>
           <table class="di-item-table">
-            <thead><tr><th>Item</th><th>Qty</th><th>Rate</th><th>UOM</th><th></th></tr></thead>
+            <thead><tr><th>{{ mode === 'pi' ? 'Supplier description' : 'Item' }}</th><th v-if="mode === 'pi'">Item Code</th><th>Qty</th><th>Rate</th><th>UOM</th><th></th></tr></thead>
             <tbody>
               <tr v-for="(it, i) in items" :key="i">
                 <td><input v-model="it.item_name" class="di-input" /></td>
+                <td v-if="mode === 'pi'">
+                  <LinkField v-model="it.item_code" doctype="Item" placeholder="Select an ERPNext Item" />
+                  <small v-if="it.item_match_source && it.item_match_source !== 'unmatched'" class="di-hint">{{ it.item_match_source }}</small>
+                </td>
                 <td><input v-model.number="it.qty" type="number" class="di-input" /></td>
                 <td><input v-model.number="it.rate" type="number" class="di-input" /></td>
                 <td><input v-model="it.uom" class="di-input" /></td>
@@ -190,12 +195,12 @@
               </tr>
             </tbody>
           </table>
-          <button class="di-btn secondary" style="margin-top:8px" @click="items.push({ item_name:'', qty:1, rate:0, uom:'Nos' })">+ Add line</button>
+          <button class="di-btn secondary" style="margin-top:8px" @click="items.push({ item_name:'', supplier_item_name:'', item_code:'', item_match_source:'unmatched', qty:1, rate:0, uom:'Nos' })">+ Add line</button>
         </template>
 
         <div class="di-modal-actions">
           <button class="di-btn secondary" @click="step = 1">Back</button>
-          <button class="di-btn primary" :disabled="creating || ((mode === 'pi' || mode === 'txn') && ((mode === 'pi' ? piDuplicate : txnDuplicate) && !confirmDuplicate))" @click="createRecord">
+          <button class="di-btn primary" :disabled="creating || (mode === 'pi' && items.some(it => !it.item_code)) || ((mode === 'pi' || mode === 'txn') && ((mode === 'pi' ? piDuplicate : txnDuplicate) && !confirmDuplicate))" @click="createRecord">
             {{ creating ? 'Creating…' : 'Create' }}
           </button>
         </div>
@@ -437,3 +442,4 @@ async function createRecord() {
   display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700;
 }
 </style>
+
