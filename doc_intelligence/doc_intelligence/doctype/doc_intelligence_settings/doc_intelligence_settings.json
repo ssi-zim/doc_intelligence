@@ -44,11 +44,11 @@
    "fieldtype": "Password"
   },
   {
-   "fieldname": "gemini_model",
-   "label": "Gemini Model",
-   "fieldtype": "Select",
-   "options": "gemini-2.5-flash\ngemini-2.0-flash\ngemini-1.5-flash",
-   "default": "gemini-2.5-flash"
+  "fieldname": "gemini_model",
+  "label": "Gemini Model",
+  "fieldtype": "Data",
+  "default": "gemini-2.5-flash",
+  "description": "Enter any Gemini model ID available to this API key. Invoice images require a vision-capable Gemini model."
   },
   {
    "fieldname": "sb_cerebras",
