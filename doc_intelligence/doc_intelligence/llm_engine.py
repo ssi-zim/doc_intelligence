@@ -66,6 +66,13 @@ def _log_provider_call(provider_id, success, tokens, error=None):
         pass
 
 
+def _completion_token_limit(provider, model, max_tokens):
+    """Use the token-limit parameter required by the selected API model."""
+    if provider["id"] == "openai" and model.lower().startswith(("gpt-5", "o1", "o3", "o4")):
+        return {"max_completion_tokens": max_tokens}
+    return {"max_tokens": max_tokens}
+
+
 def _call_openai_compat(provider, prompt, system, max_tokens, settings):
     from openai import OpenAI, RateLimitError, APIStatusError
     key = provider.get("_override_key") or provider.get("_key") or settings.get_password(provider["key_field"])
@@ -78,7 +85,7 @@ def _call_openai_compat(provider, prompt, system, max_tokens, settings):
         resp = client.chat.completions.create(
             model=model,
             messages=[{"role": "system", "content": system}, {"role": "user", "content": prompt}],
-            max_tokens=max_tokens,
+            **_completion_token_limit(provider, model, max_tokens),
         )
         text = resp.choices[0].message.content
         tokens_in = getattr(resp.usage, "prompt_tokens", 0)
@@ -278,7 +285,7 @@ def _vision_call_openai_compat(provider, image_b64, mime, max_tokens, settings):
                     {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{image_b64}"}},
                 ]},
             ],
-            max_tokens=max_tokens,
+            **_completion_token_limit(provider, model, max_tokens),
         )
         text = resp.choices[0].message.content
         return {"text": text, "provider": provider["id"], "model": model,
