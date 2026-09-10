@@ -1,0 +1,19 @@
+{
+ "doctype": "DocType",
+ "name": "Supplier Item Mapping",
+ "module": "Doc Intelligence",
+ "autoname": "hash",
+ "title_field": "supplier_item_name",
+ "search_fields": "supplier,supplier_item_name,item_code",
+ "fields": [
+  {"fieldname": "supplier", "label": "Supplier", "fieldtype": "Link", "options": "Supplier", "reqd": 1, "in_list_view": 1},
+  {"fieldname": "supplier_item_name", "label": "Supplier Item Description", "fieldtype": "Data", "reqd": 1, "in_list_view": 1},
+  {"fieldname": "normalised_supplier_item_name", "label": "Normalised Supplier Item Description", "fieldtype": "Data", "reqd": 1, "read_only": 1, "hidden": 1},
+  {"fieldname": "item_code", "label": "ERPNext Item Code", "fieldtype": "Link", "options": "Item", "reqd": 1, "in_list_view": 1}
+ ],
+ "permissions": [
+  {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1},
+  {"role": "Doc Intelligence User", "read": 1, "write": 1, "create": 1}
+ ]
+}
+
