@@ -130,9 +130,9 @@
   {
    "fieldname": "openai_model",
    "label": "OpenAI Model",
-   "fieldtype": "Select",
-   "options": "gpt-4o-mini\ngpt-4o\ngpt-4.1-mini",
-   "default": "gpt-4o-mini"
+   "fieldtype": "Data",
+   "default": "gpt-4o-mini",
+   "description": "Enter any OpenAI model ID available to this API key. Invoice images require a vision-capable Chat Completions model."
   },
   {
    "fieldname": "sb_deepseek",
@@ -187,3 +187,4 @@
   }
  ]
 }
+
