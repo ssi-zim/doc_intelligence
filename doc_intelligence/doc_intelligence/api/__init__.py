@@ -266,27 +266,37 @@ Return only the JSON, no explanation."""
     supplier_match = intelligent_supplier_match(supplier_name)
     matched_supplier = supplier_match["supplier"]
 
-    # Build items list
+    # Resolve invoice lines to existing ERPNext Items. We never create Items
+    # from AI/OCR text: an unmatched line must be reviewed by the user.
     items = []
     for item in (extracted.get("items") or []):
+        supplier_item_name = item.get("item_name") or "Services"
+        item_match = resolve_purchase_invoice_item(matched_supplier, supplier_item_name)
         items.append({
-            "item_name": item.get("item_name") or "Services",
-            "description": item.get("item_name") or "Services",
+            "supplier_item_name": supplier_item_name,
+            "item_name": supplier_item_name,
+            "description": supplier_item_name,
+            "item_code": item_match["item_code"],
+            "item_match_source": item_match["source"],
             "qty": float(item.get("qty") or 1),
             "rate": float(item.get("rate") or item.get("amount") or 0),
             "amount": float(item.get("amount") or 0),
-            "uom": item.get("uom") or "Nos",
+            "uom": item.get("uom") or item_match["uom"] or "Nos",
             "expense_account": frappe.db.get_value("Company", default_company, "default_expense_account") or "",
         })
 
     if not items:
+        item_match = resolve_purchase_invoice_item(matched_supplier, "Invoice Amount")
         items = [{
+            "supplier_item_name": "Invoice Amount",
             "item_name": "Invoice Amount",
             "description": f"From document: {doc.title}",
+            "item_code": item_match["item_code"],
+            "item_match_source": item_match["source"],
             "qty": 1,
             "rate": float(extracted.get("grand_total") or 0),
             "amount": float(extracted.get("grand_total") or 0),
-            "uom": "Nos",
+            "uom": item_match["uom"] or "Nos",
         }]
 
     # Independently recompute totals from the extracted items/tax and flag
@@ -366,12 +376,19 @@ def create_purchase_invoice_doc(supplier, bill_no=None, bill_date=None, posting_
 
     pi_items = []
     for item in items:
+        item_code = (item.get("item_code") or "").strip()
+        if not item_code or not frappe.db.exists("Item", item_code):
+            frappe.throw(
+                "Every Purchase Invoice line needs a valid ERPNext Item Code. "
+                "Select an existing Item before creating the invoice."
+            )
+        item_uom = item.get("uom") or frappe.db.get_value("Item", item_code, "stock_uom") or "Nos"
         pi_items.append({
-            "item_name": item.get("item_name") or "Services",
-            "description": item.get("item_name") or "Services",
+            "item_code": item_code,
+            "description": item.get("supplier_item_name") or item.get("item_name") or "Services",
             "qty": float(item.get("qty") or 1),
             "rate": float(item.get("rate") or 0),
-            "uom": item.get("uom") or "Nos",
+            "uom": item_uom,
             "expense_account": expense_account,
         })
 
@@ -389,11 +406,87 @@ def create_purchase_invoice_doc(supplier, bill_no=None, bill_date=None, posting_
         "custom_pending_remarks": remarks or "",
     })
     doc.insert(ignore_mandatory=True)
+    _save_supplier_item_mappings(supplier, items)
     # Commits immediately after insert() so the newly-created draft record is
     # durably saved before the API response returns and the frontend navigates
     # straight to it.
     frappe.db.commit()  # nosemgrep: frappe-manual-commit
     return {"name": doc.name, "doctype": "Purchase Invoice"}
+
+
+def _normalise_supplier_item_name(value):
+    """Normalise harmless formatting differences for an exact saved mapping."""
+    import re
+    return " ".join(re.findall(r"[a-z0-9]+", (value or "").casefold()))
+
+
+def resolve_purchase_invoice_item(supplier, supplier_item_name):
+    """Find a saved supplier mapping or a deterministic existing Item match.
+
+    The function intentionally does not fuzzy-match or create Items. A wrong
+    stock item is worse than requiring one quick human selection.
+    """
+    normalised = _normalise_supplier_item_name(supplier_item_name)
+    if not normalised:
+        return {"item_code": None, "uom": None, "source": "unmatched"}
+
+    if supplier:
+        mapping = frappe.db.get_value(
+            "Supplier Item Mapping",
+            {"supplier": supplier, "normalised_supplier_item_name": normalised},
+            ["item_code"],
+            as_dict=True,
+        )
+        if mapping and frappe.db.exists("Item", mapping.item_code):
+            return {
+                "item_code": mapping.item_code,
+                "uom": frappe.db.get_value("Item", mapping.item_code, "stock_uom"),
+                "source": "saved mapping",
+            }
+
+    # First exact Item Code, then exact item_name (case-insensitive).
+    if frappe.db.exists("Item", supplier_item_name):
+        return {
+            "item_code": supplier_item_name,
+            "uom": frappe.db.get_value("Item", supplier_item_name, "stock_uom"),
+            "source": "exact item code",
+        }
+
+    matches = []
+    for row in frappe.get_all("Item", fields=["name", "item_name", "stock_uom"]):
+        if _normalise_supplier_item_name(row.item_name) == normalised:
+            matches.append(row)
+    if len(matches) == 1:
+        return {"item_code": matches[0].name, "uom": matches[0].stock_uom, "source": "exact item name"}
+
+    return {"item_code": None, "uom": None, "source": "unmatched"}
+
+
+def _save_supplier_item_mappings(supplier, items):
+    """Remember user-reviewed supplier descriptions after a successful draft."""
+    if not supplier:
+        return
+    for item in items:
+        item_code = (item.get("item_code") or "").strip()
+        supplier_item_name = item.get("supplier_item_name") or item.get("item_name") or ""
+        normalised = _normalise_supplier_item_name(supplier_item_name)
+        if not item_code or not normalised:
+            continue
+        existing = frappe.db.get_value(
+            "Supplier Item Mapping",
+            {"supplier": supplier, "normalised_supplier_item_name": normalised},
+            "name",
+        )
+        values = {
+            "supplier": supplier,
+            "supplier_item_name": supplier_item_name.strip(),
+            "normalised_supplier_item_name": normalised,
+            "item_code": item_code,
+        }
+        if existing:
+            frappe.db.set_value("Supplier Item Mapping", existing, values, update_modified=False)
+        else:
+            frappe.get_doc({"doctype": "Supplier Item Mapping", **values}).insert(ignore_permissions=True)
 # =====================================================================
 # ENTITY CREATE ACTIONS  —  append to:
 #   apps/doc_intelligence/doc_intelligence/doc_intelligence/api/__init__.py
@@ -1077,3 +1170,4 @@ def copilot_confirm_create(doctype, values):
         return confirm_create(doctype, values, frappe.session.user)
     except CopilotError as e:
         frappe.throw(str(e), title="Couldn't create record")
+
