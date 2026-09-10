@@ -233,8 +233,9 @@ def get_provider_health():
 import base64
 import os
 
-# Providers in PROVIDERS that can actually read images.
-_VISION_PROVIDER_IDS = {"gemini", "claude", "openrouter"}
+# Providers in PROVIDERS that can actually read images. OpenAI models are
+# configurable, so the selected model still needs to support image input.
+_VISION_PROVIDER_IDS = {"gemini", "claude", "openrouter", "openai"}
 
 _VISION_SYSTEM = (
     "You are an OCR and document-transcription engine. Transcribe ALL text "
