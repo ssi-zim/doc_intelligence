@@ -211,3 +211,6 @@ export async function searchLink(doctype, txt = '', filters = null) {
   })
   return data.results || []
 }
+
+export const searchExistingItems = (txt) =>
+  call(`${APP}.search_existing_items`, { txt }).then(r => r.message || [])

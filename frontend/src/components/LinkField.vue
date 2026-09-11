@@ -21,7 +21,8 @@
           <div v-if="r.description" class="di-linkfield-item-desc">{{ r.description }}</div>
         </div>
         <div v-if="!results.length" class="di-linkfield-empty">
-          No existing {{ doctype }} matches{{ text ? ` for "${text}"` : '' }} — will create new
+          <template v-if="doctype === 'Item'">No matching Item Code{{ text ? ` for "${text}"` : '' }}.</template>
+          <template v-else>No existing {{ doctype }} matches{{ text ? ` for "${text}"` : '' }} — will create new</template>
         </div>
       </template>
     </div>
@@ -30,7 +31,7 @@
 
 <script setup>
 import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
-import { searchLink } from '@/api/frappe'
+import { searchLink, searchExistingItems } from '@/api/frappe'
 
 const props = defineProps({
   modelValue: { type: String, default: '' },
@@ -64,7 +65,9 @@ function onFocus() {
 async function runSearch() {
   loading.value = true
   try {
-    results.value = await searchLink(props.doctype, text.value, props.filters)
+    results.value = props.doctype === 'Item'
+      ? await searchExistingItems(text.value)
+      : await searchLink(props.doctype, text.value, props.filters)
   } catch {
     results.value = []
   } finally {

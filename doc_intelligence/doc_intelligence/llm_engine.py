@@ -101,6 +101,37 @@ def _call_openai_compat(provider, prompt, system, max_tokens, settings):
         raise _ProviderError(str(e))
 
 
+def _call_gemini_native_text(provider, prompt, system, max_tokens, settings):
+    """Use Gemini's native API for text calls as well as vision calls."""
+    import requests
+    key = provider.get("_override_key") or provider.get("_key") or settings.get_password(provider["key_field"])
+    model = (getattr(settings, provider["model_field"], None) or provider["default_model"]).replace("models/", "")
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+    payload = {
+        "contents": [{"parts": [{"text": f"{system}\n\n{prompt}"}]}],
+        "generationConfig": {"maxOutputTokens": max_tokens},
+    }
+    try:
+        response = requests.post(url, headers={"x-goog-api-key": key}, json=payload, timeout=90)
+        if response.status_code in (429, 502, 503):
+            raise _RateLimitError(response.text[:200])
+        if response.status_code != 200:
+            raise _ProviderError(f"{response.status_code}: {response.text[:200]}")
+        data = response.json()
+        parts = ((data.get("candidates") or [{}])[0].get("content") or {}).get("parts") or []
+        text = "".join(part.get("text", "") for part in parts).strip()
+        if not text:
+            raise _ProviderError("Gemini returned no text")
+        usage = data.get("usageMetadata", {})
+        return {"text": text, "provider": "gemini", "model": model,
+                "tokens_in": usage.get("promptTokenCount", 0),
+                "tokens_out": usage.get("candidatesTokenCount", 0)}
+    except (_RateLimitError, _ProviderError):
+        raise
+    except Exception as e:
+        raise _ProviderError(str(e))
+
+
 def _call_claude(provider, prompt, system, max_tokens, settings):
     import anthropic
     key = provider.get("_override_key") or provider.get("_key") or settings.get_password(provider["key_field"])
@@ -134,7 +165,9 @@ def llm_call(prompt, system="You are a helpful AI assistant.", max_tokens=2000, 
     fallback_used = False
     for i, p in enumerate(providers):
         try:
-            if p["openai_compat"]:
+            if p["id"] == "gemini":
+                result = _call_gemini_native_text(p, prompt, system, max_tokens, settings)
+            elif p["openai_compat"]:
                 result = _call_openai_compat(p, prompt, system, max_tokens, settings)
             else:
                 result = _call_claude(p, prompt, system, max_tokens, settings)

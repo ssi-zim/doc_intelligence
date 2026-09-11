@@ -181,7 +181,7 @@ def save_provider_settings(settings):
 def test_providers():
     if "System Manager" not in frappe.get_roles():
         frappe.throw("Only System Manager can test providers.", frappe.PermissionError)
-    from doc_intelligence.doc_intelligence.llm_engine import PROVIDERS, _get_settings, _call_openai_compat, _call_claude, _RateLimitError, _ProviderError
+    from doc_intelligence.doc_intelligence.llm_engine import PROVIDERS, _get_settings, _call_openai_compat, _call_gemini_native_text, _call_claude
     settings = _get_settings()
     results = []
     for p in PROVIDERS:
@@ -190,7 +190,12 @@ def test_providers():
             results.append({"provider": p["id"], "status": "skipped", "message": "No API key"})
             continue
         try:
-            resp = _call_openai_compat(p, "Reply with single word: ok", "You are a test.", 10, settings) if p["openai_compat"] else _call_claude(p, "Reply with single word: ok", "You are a test.", 10, settings)
+            if p["id"] == "gemini":
+                resp = _call_gemini_native_text(p, "Reply with single word: ok", "You are a test.", 10, settings)
+            elif p["openai_compat"]:
+                resp = _call_openai_compat(p, "Reply with single word: ok", "You are a test.", 10, settings)
+            else:
+                resp = _call_claude(p, "Reply with single word: ok", "You are a test.", 10, settings)
             results.append({"provider": p["id"], "status": "pass", "response": resp.get("text", "")[:50]})
         except Exception as e:
             results.append({"provider": p["id"], "status": "fail", "message": str(e)})
@@ -362,10 +367,11 @@ def create_purchase_invoice_doc(supplier, bill_no=None, bill_date=None, posting_
         items = json.loads(items)
     items = items or []
 
-    # A missing extracted date must not make invoice creation fail. Keep all
-    # three document dates consistent, preferring the user-reviewed values.
-    invoice_date = posting_date or bill_date or nowdate()
-    posting_date = posting_date or invoice_date
+    # The supplier invoice date is the default posting date. The review form
+    # submits the user's final bill_date, so an edited bill date remains in
+    # sync; ERPNext can still change posting_date on the saved draft.
+    invoice_date = bill_date or posting_date or nowdate()
+    posting_date = invoice_date
     bill_date = bill_date or invoice_date
     due_date = due_date or posting_date or bill_date
 
@@ -423,6 +429,27 @@ def create_purchase_invoice_doc(supplier, bill_no=None, bill_date=None, posting_
     # straight to it.
     frappe.db.commit()  # nosemgrep: frappe-manual-commit
     return {"name": doc.name, "doctype": "Purchase Invoice"}
+
+
+@frappe.whitelist()
+def search_existing_items(txt=""):
+    """Return enabled Item Codes by code or name for the review form."""
+    needle = (txt or "").strip()
+    if not needle:
+        return []
+    like = f"%{needle}%"
+    return frappe.db.sql(
+        """
+        SELECT name AS value, item_name AS description
+        FROM `tabItem`
+        WHERE disabled = 0
+          AND (name LIKE %s OR item_name LIKE %s)
+        ORDER BY CASE WHEN name = %s THEN 0 ELSE 1 END, item_name
+        LIMIT 20
+        """,
+        (like, like, needle),
+        as_dict=True,
+    )
 
 
 def _normalise_supplier_item_name(value):
