@@ -214,12 +214,23 @@ def create_purchase_invoice(doc_name):
     
     prompt = f"""You are an ERPNext expert. Extract Purchase Invoice fields from this invoice document text.
 
+Accuracy rules:
+- Copy the invoice date exactly from the document. Do not substitute today's date,
+  infer a year, or use a delivery, received, or stamp date as the invoice date.
+  If the year is unclear, return null rather than guessing.
+- Extract only actual charged line items. Ignore blank, pre-printed, cancelled,
+  heading, or template rows, even when they contain a product name.
+- Keep each charged row separate. Never join a blank/pre-printed row's
+  description to the next charged row.
+- A line item must have a quantity, rate, amount, or other clear indication that
+  it was supplied. Preserve the item's wording as shown.
+
 Return ONLY a valid JSON object with these exact keys (use null for fields not found):
 {{
   "supplier_name": "exact supplier/vendor name as shown",
   "bill_no": "invoice number / bill number",
   "bill_date": "invoice date in YYYY-MM-DD format",
-  "posting_date": "today or invoice date in YYYY-MM-DD format", 
+  "posting_date": "invoice date in YYYY-MM-DD format, null if not found",
   "due_date": "due date or payment due date in YYYY-MM-DD format, null if not found",
   "currency": "currency code like INR, USD etc, default INR",
   "items": [
@@ -244,8 +255,8 @@ Document text:
 Return only the JSON, no explanation."""
 
     settings = frappe.get_single("Doc Intelligence Settings")
-    result = llm_call(prompt, "You are a precise invoice data extractor. Return only valid JSON.", 
-                      settings.max_tokens_per_request or 2000)
+    result = llm_call(prompt, "You are a precise invoice data extractor. Return only valid JSON.",
+                      settings.max_tokens_per_request or 2000, json_mode=True)
 
     # Parse AI response
     import json, re

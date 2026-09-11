@@ -158,6 +158,12 @@ def analyse_document(raw_text, document_type, tenant_name=None, max_tokens=2000)
 - "entities": string, bullet list of key names/orgs/dates/amounts/clauses found
 - "tables": array of objects, each with "headers" (array of strings) and "rows" (array of arrays). Empty array if no tables found.
 
+For invoice and transaction tables: include only actual charged/supplied rows.
+Ignore blank, pre-printed, cancelled, heading, and template rows, even if they
+contain a product label. Keep rows separate; do not append a blank row's label
+to the next charged row. Preserve dates exactly as written; never infer a year
+or replace an unclear date with the current date.
+
 Document text:
 ---
 {raw_text[:12000]}
