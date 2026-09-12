@@ -266,16 +266,31 @@ Return only the JSON, no explanation."""
     result = llm_call(prompt, "You are a precise invoice data extractor. Return only valid JSON.",
                       settings.max_tokens_per_request or 2000, json_mode=True)
 
-    # Parse AI response
+    # Parse AI response.  Long supplier invoices can contain many lines; some
+    # reasoning models use the normal response allowance before completing the
+    # JSON.  Retry once with a larger allowance instead of rejecting otherwise
+    # valid extraction work as an unparseable invoice.
     import json, re
+
+    def parse_invoice_json(response):
+        cleaned = re.sub(r"```json\s*|\s*```", "", response or "").strip()
+        return json.loads(cleaned), cleaned
+
     text = result.get("text", "")
-    # Strip markdown code blocks if present
-    text = re.sub(r"```json\s*|\s*```", "", text).strip()
-    
     try:
-        extracted = json.loads(text)
+        extracted, text = parse_invoice_json(text)
     except Exception:
-        frappe.throw(f"AI could not parse invoice data. Raw response: {text[:500]}")
+        retry = llm_call(
+            prompt,
+            "You are a precise invoice data extractor. Return only complete, valid JSON.",
+            max(settings.max_tokens_per_request or 2000, 8192),
+            json_mode=True,
+        )
+        text = retry.get("text", "")
+        try:
+            extracted, text = parse_invoice_json(text)
+        except Exception:
+            frappe.throw(f"AI could not parse invoice data. Raw response: {text[:500]}")
 
     # Match supplier using exact-then-fuzzy matching with ambiguity detection,
     # instead of trusting the first crude LIKE hit.
