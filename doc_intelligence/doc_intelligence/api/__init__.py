@@ -191,7 +191,10 @@ def test_providers():
             continue
         try:
             if p["id"] == "gemini":
-                resp = _call_gemini_native_text(p, "Reply with single word: ok", "You are a test.", 10, settings)
+                # Gemini 2.5+ models may spend their initial output budget on
+                # reasoning before emitting text.  Ten tokens makes a healthy
+                # model look unavailable, so leave enough room for the reply.
+                resp = _call_gemini_native_text(p, "Reply with single word: ok", "You are a test.", 256, settings)
             elif p["openai_compat"]:
                 resp = _call_openai_compat(p, "Reply with single word: ok", "You are a test.", 10, settings)
             else:
